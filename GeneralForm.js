@@ -4,9 +4,7 @@ import useAxiosRequest from "../../hooks/useAxiosRequest";
 import PersonalInformation from "../../components/PersonalInfo/PersonalInfo";
 import HomeInformation from "../../components/HomeInfo/HomeInfo";
 import SocialSecurity from "../../components/SocialSecurity/SocialSecurity";
-import ExclusiveInitInfo from "../../components/ExclusiveInitInfo/ExclusiveInitInfo";
 import EndowmentInformation from "../../components/Endowment/Endowment";
-import EndowmentEmvariasForm from "../../components/EndowmentEmvarias/EndowmentEmvarias";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import EmergencyContact from "../../components/EmergencyContact/EmergencyContact";
@@ -17,7 +15,6 @@ import ListOptionsContext from "../../context/ListOptionsContext";
 import LoadingComponent2 from "../../components/LoadingComponents/LoadingComponent2";
 
 function GeneralForm() {
-  const aseoProject = "Programa de Gestión del Aseo de la Ciudad";
   const pantManSize = [];
   const pantWomanSize = [];
   const navigate = useNavigate();
@@ -203,17 +200,9 @@ function GeneralForm() {
     }
   };
 
-  
-
   return (
     <div className="principal-container r">
       <h1 className="m-tp-85">Datos Generales</h1>
-
-      <ExclusiveInitInfo
-        nameBox={"Información Administrativa"}
-        userData={userData}
-      />
-      <br />
 
       <Modal show={show} onHide={handleClose}>
         <Modal.Header closeButton>
@@ -298,23 +287,14 @@ function GeneralForm() {
         />
         <br />
 
-        {userData?.employee_project === aseoProject ? (
-          <EndowmentEmvariasForm
-            nameBox={"Información Dotación"}
-            userData={userData}
-            pantSizes={pantsSizes}
-            shirtSizes={shirtSizes}
-            shoesSizes={shoesSizes}
-          />
-        ) : (
-          <EndowmentInformation
-            nameBox={"Información Dotación"}
-            sizeOptions={sizeOptions}
-            userData={userData}
-            shoesSizes={shoesSizes}
-            shirtSizes={shirtSizes}
-          />
-        )}
+        <EndowmentInformation
+          nameBox={"Información Dotación"}
+          sizeOptions={sizeOptions}
+          userData={userData}
+          shoesSizes={shoesSizes}
+          shirtSizes={shirtSizes}
+        />
+
         <br />
 
         <button className="principal-button" type="submit" disabled={sendingForm}>

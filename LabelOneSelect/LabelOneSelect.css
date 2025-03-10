@@ -1,0 +1,27 @@
+.select-label-container{
+    font-family:'Work Sans';
+    display: grid;
+    grid-template-columns: 110px 2fr;
+    padding: 15px;
+    align-items: center;
+    grid-gap: 25px;
+}
+
+/* Mediaqueries*/
+
+/*Celular*/
+@media (max-width: 700px) {
+    
+    .select-label-container{
+        display: block;
+    }
+
+  }
+  
+  /*Tablet*/
+  @media (min-width: 701px) and (max-width:1024px) {
+  
+    .select-label-container{
+        display: block;
+    }
+}
