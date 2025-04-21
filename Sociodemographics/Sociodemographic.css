@@ -1,0 +1,13 @@
+.user-tags{
+    display: flex;
+    gap: 15px
+}
+
+.user-tags .tags-container {
+    width: 100%;
+    justify-content: center;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    background-color: #fff;
+}
