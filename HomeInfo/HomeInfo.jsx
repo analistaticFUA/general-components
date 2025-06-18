@@ -4,7 +4,7 @@ import LabelTwoFields from "../LabelTwoFields/LabelTwoFields";
 import LabelOneSelect from "../LabelOneSelect/LabelOneSelect";
 import "../../assets/stylesheets/HomeInfo.css";
 
-function HomeInformation(props) {
+function HomeInfo(props) {
   
   //Variables Generales
   const [selectedDepartment, setSelectedDepartment] = useState("");
@@ -121,7 +121,11 @@ function HomeInformation(props) {
 
   return (
     <div className="form-box">
-      <h3>{props.nameBox}</h3>
+      <div className="card-name">
+        <i className="fa-solid fa-house-chimney"></i>
+        <h3>{props.nameBox}</h3>
+      </div>
+      
       <LabelOneField
         labelText={"Dirección de residencia:"}
         inputId={"address_home_id_display"}
@@ -147,10 +151,10 @@ function HomeInformation(props) {
             <option value="CR">Carrera</option>
             <option value="CQ">Circular</option>
             <option value="CV">Circunvalar</option>
+            <option value="AV">Avenida</option>
             <option value="AC">Avenida Calle</option>
             <option value="AK">Avenida Carrera</option>
             <option value="AUT">Autopista</option>
-            <option value="AV">Avenida</option>
             <option value="DG">Diagonal</option>
             <option value="KM">kilometro</option>
             <option value="TV">Transversal</option>
@@ -299,10 +303,9 @@ function HomeInformation(props) {
         defaultValue={
           props.userData.email === "N/A" || null ? null : props.userData.email
         }
-        pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
       />
     </div>
   );
 }
 
-export default HomeInformation;
+export default HomeInfo;

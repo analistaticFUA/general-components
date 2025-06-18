@@ -5,22 +5,29 @@ import Button from "react-bootstrap/Button";
 import useAxiosRequest from "../../hooks/useAxiosRequest";
 import ComboBox from "../ComboBox/ComboBox";
 import UploadFile from "../Uploads/UploadFile";
+import LabelOneField from "../LabelOneField/LabelOneField";
+import "../../assets/stylesheets/Studies.css";
+import LabelOneSelect from "../LabelOneSelect/LabelOneSelect";
 
-function StudiesInfo({ 
-  onStudiesDataChange, 
-  academicLevels, 
-  academicStates, 
+function StudiesInfo({
+  onStudiesDataChange,
+  onHasStudiesChange,
+  onFilesDataChange,
+  academicLevels,
+  academicStates,
   project,
   userId,
-}) 
-{
+  userData,
+}) {
   const metro = "Programa de Conducción de Vehículos de Transporte Masivo";
   const { statusCode, sendRequest } = useAxiosRequest();
   const [studiesData, setStudiesData] = useState({});
+  const [studiesFiles, setStudiesFiles] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [studiesId, setStudiesId] = useState("");
   const [sendingForm, setSendingForm] = useState(false);
   const [show, setShow] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const [isCustom, setIsCustom] = useState(false);
   const [newStudy, setNewStudy] = useState({
     academic_level: "",
@@ -28,11 +35,10 @@ function StudiesInfo({
     program: "",
     academic_state: "",
     total_credits: "",
-    approved_credits: "",
-    semester:"",
+    aproved_credits: "",
+    period: "",
+    current_level: "",
     graduation_year: "",
-    department: "",
-    municipality: "",
   });
 
   const [isFormValid, setIsFormValid] = useState(false);
@@ -42,59 +48,44 @@ function StudiesInfo({
     program: false,
     academic_state: false,
     graduation_year: false,
-    department: false,
-    municipality: false,
   });
-
-  // const departments = [
-  //   "CESAR",
-  //   "SANTANDER",
-  //   "CHOCÓ",
-  //   "BOGOTÁ, D.C.",
-  //   "ANTIOQUIA",
-  //   "VALLE DEL CAUCA",
-  //   "CUNDINAMARCA",
-  //   "NARIÑO",
-  //   "BOYACÁ",
-  //   "HUILA",
-  //   "RISARALDA",
-  //   "BOLÍVAR",
-  //   "ATLÁNTICO",
-  //   "MAGDALENA",
-  //   "QUINDIO",
-  //   "CALDAS",
-  //   "LA GUAJIRA",
-  //   "PUTUMAYO",
-  //   "CÓRDOBA",
-  //   "META",
-  //   "NORTE DE SANTANDER",
-  //   "SUCRE",
-  //   "CAUCA",
-  //   "TOLIMA",
-  //   "VICHADA",
-  //   "CASANARE",
-  //   "GUAVIARE",
-  //   "ARAUCA",
-  //   "CAQUETÁ",
-  //   "ARCHIPIÉLAGO DE SAN ANDRÉS, PROVIDENCIA Y SANTA CATALINA",
-  //   "AMAZONAS",
-  //   "GUAINÍA",
-  //   "VAUPÉS",
-  // ];
 
   const initialLoad = useRef(true);
   const [universitiesByRow, setUniversitiesByRow] = useState({});
   const [programsByUniversity, setProgramsByUniversity] = useState({});
-  // const [municipalities, setMunicipalities] = useState([]);
   const universitiesURL = process.env.REACT_APP_UNIVERSITIES_URL;
   const backendURL = process.env.REACT_APP_BACKEND_URL;
   const schoolsUrl = process.env.REACT_APP_SCHOOLS_URL;
+  const [hasStudies, setHasStudies] = useState(() => {
+    return userData.scholarship === "N/A" || userData.scholarship === "Ninguno"
+      ? "No"
+      : "Si";
+  });
+  const [scholarshipValue, setScholarshipValue] = useState(() => {
+    if (userData.scholarship === "N/A") return "Sin Registro";
+    return userData.scholarship || "Ninguno";
+  });
+
+ 
+
+  const currentYear = new Date().getFullYear();
+  const periodOptions = [currentYear - 1, currentYear].flatMap((year) => [
+    `${year}-1`,
+    `${year}-2`,
+  ]);
+
+  const handleCloseDetails = () => setShowDetails(false);
+  const handleShowDetails = (id) => {
+    setShowDetails(true);
+    setStudiesId(id);
+  };
 
   const handleClose = () => {
     setUniversitiesByRow({});
     setProgramsByUniversity({});
     setShow(false);
   };
+
   const handleShow = () => {
     setNewStudy({
       academic_level: "",
@@ -102,11 +93,11 @@ function StudiesInfo({
       program: "",
       academic_state: "",
       total_credits: "",
-      approved_credits: "",
-      semester:"",
+      aproved_credits: "",
+      current_level: "",
       graduation_year: "",
-      department: "",
-      municipality: "",
+      period: "",
+      schedule: "",
     });
     setUniversitiesByRow({});
     setProgramsByUniversity({});
@@ -118,61 +109,100 @@ function StudiesInfo({
     if (initialLoad.current) {
       initialLoad.current = false;
 
-      sendRequest({
-        url: `${backendURL}/employees/academics/`,
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        onSuccess: (data) => {
-          if (typeof data === "object" && data !== null) {
-            const initialStudiesData = Object.keys(data).reduce((acc, key) => {
-              const item = data[key];
-              const newId = `${item.academic_level}-${item.program}`;
-              acc[newId] = {
-                ...item,
-                isNew: false,
-              };
-              return acc;
-            }, {});
-            setStudiesData(initialStudiesData);
-            setIsLoading(false);
-          } else {
-            console.error("Expected an object but received:", data);
-          }
-        },
-        onError: (error) => {
-          console.error("Error fetching academic data:", error);
-          if (!error.response) {
-            alert(
-              "Network error. Please check your internet connection and try again."
-            );
-          }
-        },
-      });
-    }
-  }, [backendURL, sendRequest]);
+      if (project !== metro) {
+        sendRequest({
+          url: `${backendURL}/employees/academics/`,
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          onSuccess: (data) => {
+            if (typeof data === "object" && data !== null) {
+              const initialStudiesData = Object.keys(data).reduce(
+                (acc, key) => {
+                  const item = data[key];
+                  const newId = `${item.academic_level}-${item.program}`;
+                  acc[newId] = {
+                    ...item,
+                    isNew: false,
+                  };
+                  return acc;
+                },
+                {}
+              );
+              setStudiesData(initialStudiesData);
+              setIsLoading(false);
+            } else {
+              console.error("Expected an object but received:", data);
+            }
+          },
+          onError: (error) => {
+            console.error("Error fetching academic data:", error);
+            if (!error.response) {
+              alert(
+                "Network error. Please check your internet connection and try again."
+              );
+            }
+          },
+        });
+      } else {
+        sendRequest({
+          url: `${backendURL}/employees/academics/drivers/`,
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          onSuccess: (data) => {
+            if (typeof data === "object" && data !== null) {
+              const initialStudiesData = Object.keys(data).reduce(
+                (acc, key) => {
+                  const item = data[key];
+                  const newId = `${item.academic_level}-${item.program}`;
 
-  const fetchAndStoreData = (level, rowId, department = "") => {
+                  // Si viene academic_advances y no está vacío, tomamos el primer objeto
+                  const advances =
+                    Array.isArray(item.academic_advances) &&
+                    item.academic_advances.length
+                      ? item.academic_advances[0]
+                      : {};
+
+                  acc[newId] = {
+                    ...item,
+                    // Aplanamos en propiedades de primer nivel:
+                    total_credits: advances.total_credits || "",
+                    aproved_credits: advances.aproved_credits || "",
+                    current_level: advances.current_semester || "",
+                    report_date: advances.report_date || "",
+                    period: advances.period || "",
+                    isNew: false,
+                  };
+                  return acc;
+                },
+                {}
+              );
+              setStudiesData(initialStudiesData);
+              setIsLoading(false);
+            } else {
+              console.error("Expected an object but received:", data);
+            }
+          },
+          onError: (error) => {
+            console.error("error en /academics/drivers/", error);
+            setIsLoading(false);
+          },
+        });
+      }
+    }
+  }, [backendURL, sendRequest, project]);
+
+  const fetchAndStoreData = (level, rowId = "") => {
     if (["Primaria", "Secundaria", "Media"].includes(level)) {
       return;
-      // const urlDeparmentList = `https://www.datos.gov.co/resource/ea56-rtcx.json?$query=SELECT%20%60nombremunicipio%60%20WHERE%20caseless_contains(%60nombredepartamento%60%2C%20%22${department}%22)%20ORDER%20BY%20%60genero%60%20DESC%20NULL%20FIRST%20LIMIT%202200%20OFFSET%200`;
-      // sendRequest({
-      //   url: urlDeparmentList,
-      //   method: "GET",
-      //   headers: { "Content-Type": "application/json" },
-      //   onSuccess: (data) => {
-      //     const municipalityList = data.map((item) => item.nombremunicipio);
-      //     const uniqueMunicipalities = [...new Set(municipalityList)];
-      //     const sortedMunicipalities = uniqueMunicipalities.sort((a, b) =>
-      //       a.localeCompare(b)
-      //     );
-      //     setMunicipalities(sortedMunicipalities);
-      //   },
-      // });
     } else {
       //Consulta a la API por nivel de Formación (Universidades)
+      if (level === "Técnica") level = "Formación técnica profesional";
       let urlInst = `nombrenivelformacion=${level}&$limit=10000`;
       if (level.startsWith("Especial")) {
         urlInst =
@@ -243,24 +273,15 @@ function StudiesInfo({
     // Si el campo cambiado es 'academic_level', ajustamos otros campos y cargamos datos relacionados.
     if (field === "academic_level") {
       if (["Primaria", "Secundaria", "Media"].includes(value)) {
-        // newFieldValidity.department = false; // Se requieren 'department' y 'municipality' para estos niveles.
-        // newFieldValidity.municipality = false;
-        // fetchAndStoreData(value, "new"); // Llamamos a la función para cargar datos relacionados.
       } else {
         // Si no es Primaria, Secundaria o Media, no se requiere 'department' ni 'municipality'.
-        newFieldValidity.department = true;
-        newFieldValidity.municipality = true;
         fetchAndStoreData(value, "new");
       }
 
       if (
-        [
-          "Formación técnica profesional",
-          "Tecnológica",
-          "Primaria",
-          "Secundaria",
-          "Media",
-        ].includes(value)
+        ["Técnica", "Tecnológica", "Primaria", "Secundaria", "Media"].includes(
+          value
+        )
       ) {
         setIsCustom(true);
       } else {
@@ -303,26 +324,18 @@ function StudiesInfo({
     // Validaciones para niveles académicos que permiten entradas personalizadas
     if (
       field === "university" &&
-      [
-        "Formación técnica profesional",
-        "Tecnológica",
-        "Primaria",
-        "Secundaria",
-        "Media",
-      ].includes(newStudy.academic_level)
+      ["Técnica", "Tecnológica", "Primaria", "Secundaria", "Media"].includes(
+        newStudy.academic_level
+      )
     ) {
       // Permitir universidades personalizadas para estos niveles
       value = value.toUpperCase();
       newFieldValidity.university = value.trim().length > 0;
     } else if (
       field === "program" &&
-      [
-        "Formación técnica profesional",
-        "Tecnológica",
-        "Primaria",
-        "Secundaria",
-        "Media",
-      ].includes(newStudy.academic_level)
+      ["Técnica", "Tecnológica", "Primaria", "Secundaria", "Media"].includes(
+        newStudy.academic_level
+      )
     ) {
       // Permitir programas personalizados para estos niveles
       value = value.toUpperCase();
@@ -355,13 +368,9 @@ function StudiesInfo({
 
     // Validación especial para 'Formación técnica profesional' o 'Tecnológica'
     if (
-      [
-        "Formación técnica profesional",
-        "Tecnológica",
-        "Primaria",
-        "Secundaria",
-        "Media",
-      ].includes(newStudy.academic_level)
+      ["Técnica", "Tecnológica", "Primaria", "Secundaria", "Media"].includes(
+        newStudy.academic_level
+      )
     ) {
       if (!newStudy.university.trim()) {
         allValid = false;
@@ -384,8 +393,8 @@ function StudiesInfo({
   }, [newStudy, fieldValidity, validateForm]);
 
   const handleAddNewStudy = () => {
-    const newId =
-      `${newStudy.academic_level}-${newStudy.program}`.toUpperCase();
+    const upperCaseStudy = newStudy.program.toUpperCase();
+    const newId = `${newStudy.academic_level}-${upperCaseStudy}`;
 
     const updatedStudiesData = {
       ...studiesData,
@@ -393,13 +402,10 @@ function StudiesInfo({
         ...newStudy,
         isNew: true,
       },
-
     };
 
     setStudiesData(updatedStudiesData); // Actualiza el estado local
-
-    onStudiesDataChange(updatedStudiesData); // Actualiza el estado en GeneralForm
-    console.log('ESTUDIOS:', updatedStudiesData);
+    // onStudiesDataChange(updatedStudiesData); // Actualiza el estado en GeneralForm
 
     // Reiniciar el formulario para un nuevo estudio
     setNewStudy({
@@ -408,11 +414,10 @@ function StudiesInfo({
       program: "",
       academic_state: "",
       total_credits: "",
-      approved_credits: "",
-      semester:"",
+      period: "",
+      aproved_credits: "",
+      current_level: "",
       graduation_year: "",
-      department: "",
-      municipality: "",
     });
     setShow(false);
   };
@@ -458,17 +463,191 @@ function StudiesInfo({
     });
   };
 
+  useEffect(() => {
+    onStudiesDataChange(studiesData);
+  }, [studiesData, onStudiesDataChange]);
+
+  const handleAcademicFileChange = (key, fileObj) => {
+    const updatedFiles = {
+      ...studiesFiles,
+      [key]: fileObj,
+    };
+    setStudiesFiles(updatedFiles);
+    onFilesDataChange(updatedFiles);
+  };
+
+  // --------------------------------------------------------
+  // 4) useEffect que “sincroniza” hasStudies y scholarshipValue cada vez que cambia studiesData
+  // --------------------------------------------------------
+  useEffect(() => {
+    onStudiesDataChange(studiesData);
+    if (Object.keys(studiesData).length === 0) {
+      setScholarshipValue("Ninguno");
+    }
+  }, [studiesData, onStudiesDataChange]);
+
   return (
     <div className="form-box">
-      <h3>Información Académica</h3>
+      <div className="card-name">
+        <i className="fa-solid fa-graduation-cap"></i>
+        <h3>Información Académica</h3>
+      </div>
 
-      <UploadFile 
-        requiredFile={"Certificado Horario de Estudios:"}
-        descriptionFile={"Semestre Actual."}
-        userId={userId}
-        devNameFile={"CERTIFICADO HORARIO"}
-      />
+      <div className="two-field-container">
+        {project !== metro && (
+          <LabelOneSelect
+            labelText={"Posee estudios:"}
+            selectText={"Elige una respuesta"}
+            initialOptions={["Si", "No"]}
+            required={true}
+            disabled={false}
+            selectId={"has_studies"}
+            defaultValue={hasStudies}
+            onChange={(val) => {
+              setHasStudies(val);
+              onHasStudiesChange(val);
+              if (val === "No") {
+                setScholarshipValue("Ninguno");
+                setStudiesData({});
+              } else {
+                setScholarshipValue(
+                  userData.scholarship === "N/A"
+                    ? "Sin Registro"
+                    : userData.scholarship
+                );
+              }
+            }}
+          />
+        )}
 
+        <LabelOneField
+          labelText={"Escolaridad:"}
+          inputId={"scholarship"}
+          inputPlaceholder={"No Registrado"}
+          inputType={"text"}
+          disabled={true}
+          defaultValue={scholarshipValue}
+        />
+        <input type="hidden" name="scholarship" value={scholarshipValue} />
+      </div>
+
+      {project === metro && (
+        <>
+          <div className="file-item-st">
+            <i className="fa-solid fa-certificate"></i>
+            <UploadFile
+              requiredFile={"Horario académico:"}
+              descriptionFile={"Semestre Actual."}
+              userId={userId}
+              devNameFile={"CERTIFICADO HORARIO"}
+              onFileChange={(data) =>
+                handleAcademicFileChange("horario_de_estudios", data)
+              }
+            />
+          </div>
+
+          <div className="file-item-st">
+            <i className="fa-solid fa-certificate"></i>
+            <UploadFile
+              requiredFile={"Certificado Estudios:"}
+              descriptionFile={"Semestre Actual."}
+              userId={userId}
+              devNameFile={"CERTIFICADO ESTUDIOS"}
+              onFileChange={(data) =>
+                handleAcademicFileChange("certificado_academico", data)
+              }
+            />
+          </div>
+
+          <div className="file-item-st">
+            <i className="fa-solid fa-certificate"></i>
+            <UploadFile
+              requiredFile={"Historial Académico:"}
+              descriptionFile={""}
+              userId={userId}
+              devNameFile={"HISTORIAL ACADÉMICO"}
+              onFileChange={(data) =>
+                handleAcademicFileChange("historial_academico", data)
+              }
+            />
+          </div>
+        </>
+      )}
+
+      {/* MODAL ACADEMIC DETAILS */}
+      <Modal show={showDetails} onHide={handleCloseDetails}>
+        <Modal.Body>
+          <div className="academic-details">
+            <h4>Detalles:</h4>
+
+            <div className="academic-grid-item">
+              <p>
+                <strong>Nivel: </strong>
+              </p>
+              <p>{studiesData[studiesId]?.academic_level}</p>
+            </div>
+
+            <div className="academic-grid-item">
+              <p>
+                <strong>Programa: </strong>
+              </p>
+              <p>{studiesData[studiesId]?.program}</p>
+            </div>
+
+            <div className="academic-grid-item">
+              <p>
+                <strong>Universidad: </strong>
+              </p>
+              <p>{studiesData[studiesId]?.university}</p>
+            </div>
+            <div className="academic-grid-item">
+              <p>
+                <strong>Estado: </strong>
+              </p>
+              <p>{studiesData[studiesId]?.academic_state}</p>
+            </div>
+
+            <div className="academic-grid-item">
+              <p>
+                <strong>Período: </strong>
+              </p>
+              <p>{studiesData[studiesId]?.period}</p>
+            </div>
+
+            <div className="academic-grid-item">
+              <p>
+                <strong>Semestre Actual: </strong>
+              </p>
+              <p>{studiesData[studiesId]?.current_level}</p>
+            </div>
+
+            <div className="academic-grid-item">
+              <p>
+                <strong>Créditos Aprobados: </strong>
+              </p>
+              <p>{studiesData[studiesId]?.aproved_credits}</p>
+            </div>
+
+            <div className="academic-grid-item">
+              <p>
+                <strong>Total Créditos: </strong>
+              </p>
+              <p>{studiesData[studiesId]?.total_credits}</p>
+            </div>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            type="button"
+            onClick={handleCloseDetails}
+          >
+            Cerrar
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* // ******************************* MODAL DELETE ******************************* // */}
       <Modal show={show} onHide={handleClose}>
         <Modal.Body>
           Antes de continuar, confirma que deseas eliminar esta información.
@@ -487,12 +666,18 @@ function StudiesInfo({
               <div>Eliminar</div>
             )}
           </Button>
-          <Button variant="secondary btn-funda" type="button" onClick={handleClose}>
+          <Button
+            variant="secondary btn-funda"
+            type="button"
+            onClick={handleClose}
+            disabled={sendingForm}
+          >
             Conservar
           </Button>
         </Modal.Footer>
       </Modal>
 
+      {/* OFFCANVAS */}
       <div
         className="offcanvas offcanvas-end"
         tabIndex="-1"
@@ -532,39 +717,7 @@ function StudiesInfo({
                 handleNewStudyChange("academic_level", e.target.value)
               }
             />
-
             <div className="offcanvas-separator"></div>
-            {/* {(newStudy.academic_level === "Primaria" ||
-              newStudy.academic_level === "Secundaria" ||
-              newStudy.academic_level === "Media") && (
-              <>
-                <label className="mt-3" htmlFor="department-new">Departamento</label>
-                <ComboBox
-                  selectId="department-new"
-                  selectedOption={newStudy.department}
-                  selectText={"Seleccione su departamento"}
-                  required={false}
-                  initialOptions={departments}
-                  defaultValue={newStudy.department}
-                  onChange={(e) =>
-                    handleNewStudyChange("department", e.target.value)
-                  }
-                />
-
-                <label className="mt-3" htmlFor="municipality-new">Municipio</label>
-                <ComboBox
-                  selectId="municipality-new"
-                  selectedOption={newStudy.municipality}
-                  selectText={"Seleccione su municipio"}
-                  required={false}
-                  initialOptions={municipalities}
-                  defaultValue={newStudy.municipality}
-                  onChange={(e) =>
-                    handleNewStudyChange("municipality", e.target.value)
-                  }
-                />
-              </>
-            )} */}
           </div>
           <div className="form-group mt-3">
             <label htmlFor="university-new">Institución</label>
@@ -579,7 +732,7 @@ function StudiesInfo({
                 handleNewStudyChange("university", e.target.value)
               }
               allowCustom={[
-                "Formación técnica profesional",
+                "Técnica",
                 "Tecnológica",
                 "Primaria",
                 "Secundaria",
@@ -604,7 +757,7 @@ function StudiesInfo({
               defaultValue={newStudy.program}
               onChange={(e) => handleNewStudyChange("program", e.target.value)}
               allowCustom={[
-                "Formación técnica profesional",
+                "Técnica",
                 "Tecnológica",
                 "Primaria",
                 "Secundaria",
@@ -628,52 +781,73 @@ function StudiesInfo({
             />
           </div>
 
-         {newStudy.academic_state==="En Proceso" && project===metro && (
-          <>
+          {newStudy.academic_state === "En Proceso" && (
             <div className="form-group mt-3">
-              <label htmlFor="total-credits-new">Total Créditos del Programa:</label>
+              <label htmlFor="current-level-new">Semestre/Nivel Actual</label>
               <input
                 type="number"
-                id="total-credits-new"
-                placeholder="Ej: 180"
-                value={newStudy.total_credits}
-                required={newStudy.academic_state === "En Proceso"}
-                onInput={(e) => {
-                  handleNewStudyChange("total_credits", e.target.value);
-                }}
-              />
-            </div>
-
-            <div className="form-group mt-3">
-              <label htmlFor="approved-credits-new">Créditos Aprobados a la Fecha:</label>
-              <input
-                type="number"
-                id="approved-credits-new"
-                placeholder="Ej: 117"
-                value={newStudy.approved_credits}
-                required={newStudy.academic_state === "En Proceso"}
-                onInput={(e) => {
-                  handleNewStudyChange("approved_credits", e.target.value);
-                }}
-              />
-            </div>
-            
-            <div className="form-group mt-3">
-              <label htmlFor="semester-new">Semestre:</label>
-              <input
-                type="number"
-                id="semester-new"
+                id="current-level-new"
+                name="current_level"
                 placeholder="Ej: 7"
-                value={newStudy.semester}
-                required={newStudy.academic_state === "En Proceso"}
-                onInput={(e) => {
-                  handleNewStudyChange("semester", e.target.value);
-                }}
+                value={newStudy.current_level}
+                required={true}
+                onInput={(e) =>
+                  handleNewStudyChange("current_level", e.target.value)
+                }
               />
             </div>
-          </>
-          
-         )}
+          )}
+
+          {newStudy.academic_state === "En Proceso" && project === metro && (
+            <>
+              <div className="form-group mt-3">
+                <label htmlFor="total-credits-new">
+                  Total Créditos del Programa:
+                </label>
+                <input
+                  type="number"
+                  id="total-credits-new"
+                  placeholder="Ej: 180"
+                  value={newStudy.total_credits}
+                  required={newStudy.academic_state === "En Proceso"}
+                  onInput={(e) => {
+                    handleNewStudyChange("total_credits", e.target.value);
+                  }}
+                />
+              </div>
+
+              <div className="form-group mt-3">
+                <label htmlFor="approved-credits-new">
+                  Créditos Aprobados a la Fecha:
+                </label>
+                <input
+                  type="number"
+                  id="approved-credits-new"
+                  placeholder="Ej: 117"
+                  value={newStudy.aproved_credits}
+                  required={newStudy.academic_state === "En Proceso"}
+                  onInput={(e) => {
+                    handleNewStudyChange("aproved_credits", e.target.value);
+                  }}
+                />
+              </div>
+
+              <div className="form-group mt-3">
+                <label htmlFor="period-new">Periodo académico actual:</label>
+                <SimpleSelect
+                  selectId="period-new"
+                  selectedOption={newStudy.period}
+                  selectText={"Seleccione su periodo actual"}
+                  initialOptions={periodOptions}
+                  defaultValue={newStudy.period}
+                  required={false}
+                  onChange={(e) =>
+                    handleNewStudyChange("period", e.target.value)
+                  }
+                />
+              </div>
+            </>
+          )}
 
           <div className="form-group mt-3">
             <label htmlFor="graduation-year-new">Año de Graduación</label>
@@ -707,6 +881,7 @@ function StudiesInfo({
         </div>
       </div>
 
+      {/* TABLA DE REGISTROS ACADÉMICOS */}
       {isLoading ? (
         <div className="d-flex justify-content-center align-items-center">
           <div className="spinner-border text-success" role="status">
@@ -716,49 +891,118 @@ function StudiesInfo({
       ) : (
         <>
           <div className="table-responsive">
-            <table className="table table-hover">
+            <table className="table table-hover table-striped">
               <thead>
                 <tr>
-                  <th scope="col">Nivel</th>
-                  <th scope="col">Institución</th>
-                  <th scope="col">Formación Académica</th>
-                  <th scope="col">Estado</th>
-                  <th scope="col">Año de Graduación</th>
-                  <th scope="col">Eliminar</th>
+                  {project === metro ? (
+                    <>
+                      <th scope="col">Formación Académica</th>
+                      <th scope="col">Institución</th>
+                      <th scope="col">Estado</th>
+                      <th scope="col">Semestre</th>
+                      <th scope="col">Acción</th>
+                    </>
+                  ) : (
+                    <>
+                      <th scope="col">Nivel</th>
+                      <th scope="col">Institución</th>
+                      <th scope="col">Formación Académica</th>
+                      <th scope="col">Estado</th>
+                      <th scope="col">Año de Graduación</th>
+                      <th scope="col">Semestre</th>
+                      <th scope="col">Acción</th>
+                    </>
+                  )}
                 </tr>
               </thead>
+
               <tbody>
-                {Object.keys(studiesData).map((id) => (
-                  <tr key={id}>
-                    <td className="academic-level">
-                      {studiesData[id].academic_level}
-                    </td>
-                    <td className="academic-entity">
-                      {studiesData[id].university}
-                    </td>
-                    <td className="academic-program">
-                      {studiesData[id].program}
-                    </td>
-                    <td className="academic-state">
-                      {studiesData[id].academic_state}
-                    </td>
-                    <td className="academic-year">
-                      {studiesData[id].graduation_year}
-                    </td>
-                    <td className="td-center">
-                      <button
-                        className="trash-button"
-                        type="button"
-                        onClick={() => handleShowDeleteModal(id)}
-                      >
-                        <i
-                          className="fa-regular fa-trash-can fa-lg trash-icon-settings"
-                          style={{ color: "#e32228" }}
-                        ></i>
-                      </button>
+                {Object.keys(studiesData).length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="text-center">
+                      Sin Registros
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  Object.keys(studiesData).map((id) => (
+                    <tr key={id}>
+                      {project === metro ? (
+                        <>
+                          <td className="academic-program">
+                            {studiesData[id].program}
+                          </td>
+                          <td className="academic-entity">
+                            {studiesData[id].university}
+                          </td>
+                          <td className="academic-state">
+                            {studiesData[id].academic_state}
+                          </td>
+                          <td className="academic-state">
+                            {studiesData[id].academic_state === "Terminado"
+                              ? "Finalizado"
+                              : studiesData[id].current_level}
+                          </td>
+                          <td className="td-center">
+                            <button
+                              className="trash-button"
+                              type="button"
+                              onClick={() => handleShowDeleteModal(id)}
+                            >
+                              <i
+                                className="fa-regular fa-trash-can fa-lg trash-icon-settings icon-table-settings"
+                                style={{ color: "#e32228" }}
+                              />
+                            </button>
+                            <button
+                              className="trash-button icon-table-settings show-icon-settings"
+                              type="button"
+                              onClick={() => handleShowDetails(id)}
+                            >
+                              <i className="fa-regular fa-eye"></i>
+                            </button>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="academic-level">
+                            {studiesData[id].academic_level}
+                          </td>
+                          <td className="academic-entity">
+                            {studiesData[id].university}
+                          </td>
+                          <td className="academic-program">
+                            {studiesData[id].program}
+                          </td>
+                          <td className="academic-state">
+                            {studiesData[id].academic_state}
+                          </td>
+                          <td className="academic-year">
+                            {studiesData[id].academic_state === "En Proceso"
+                              ? "-"
+                              : studiesData[id].graduation_year}
+                          </td>
+                          <td className="academic-state">
+                            {studiesData[id].academic_state === "Terminado"
+                              ? "Finalizado"
+                              : studiesData[id].current_level}
+                          </td>
+                          <td className="td-center">
+                            <button
+                              className="trash-button"
+                              type="button"
+                              onClick={() => handleShowDeleteModal(id)}
+                            >
+                              <i
+                                className="fa-regular fa-trash-can fa-lg trash-icon-settings"
+                                style={{ color: "#e32228" }}
+                              />
+                            </button>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -769,6 +1013,7 @@ function StudiesInfo({
             <button
               className="btn btn-primary fua-btn-outline-1"
               type="button"
+              disabled={hasStudies === "No"}
               data-bs-toggle="offcanvas"
               data-bs-target="#offcanvasRight"
               aria-controls="offcanvasRight"
